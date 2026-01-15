@@ -1,0 +1,212 @@
+[index.html](https://github.com/user-attachments/files/24637872/index.html)
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>普通話聲母五步通關挑戰</title>
+    <style>
+        :root { --accent: #ff7675; --main: #6c5ce7; --bg: #f0f2f5; --success: #00b894; }
+        body { font-family: 'PingFang HK', 'Microsoft JhengHei', sans-serif; background: var(--bg); display: flex; flex-direction: column; align-items: center; padding: 20px; }
+        #game-card { background: white; width: 100%; max-width: 500px; border-radius: 24px; padding: 30px; box-shadow: 0 15px 35px rgba(0,0,0,0.1); }
+        
+        .progress-bar { display: flex; justify-content: space-between; margin-bottom: 30px; position: relative; }
+        .progress-bar::before { content: ''; position: absolute; top: 15px; left: 0; right: 0; height: 2px; background: #eee; z-index: 1; }
+        .step { width: 30px; height: 30px; border-radius: 50%; background: #eee; z-index: 2; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: bold; color: #999; }
+        .step.active { background: var(--main); color: white; box-shadow: 0 0 10px rgba(108, 92, 231, 0.5); }
+        .step.done { background: var(--success); color: white; }
+
+        .quiz-zone { text-align: center; }
+        .info-bar { display: flex; justify-content: space-between; font-size: 14px; color: #636e72; margin-bottom: 10px; }
+        .target-word { font-size: 100px; margin: 15px 0; color: #2d3436; font-weight: bold; }
+        .options { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 25px; }
+        
+        button { padding: 18px; border: 2px solid #f1f2f6; border-radius: 16px; background: #f8f9fa; cursor: pointer; font-size: 24px; font-weight: bold; color: var(--main); transition: 0.2s; }
+        button:hover:not(:disabled) { border-color: var(--main); background: #f1f0ff; }
+        button.correct { background: var(--success) !important; color: white; border-color: var(--success); }
+        button.wrong { background: var(--accent) !important; color: white; border-color: var(--accent); }
+        .nav-btn { background: var(--main); color: white; width: 100%; margin-top: 20px; }
+    </style>
+</head>
+<body>
+
+<div id="game-card">
+    <div class="progress-bar" id="progress-bar">
+        <div class="step" id="s1">1</div>
+        <div class="step" id="s2">2</div>
+        <div class="step" id="s3">3</div>
+        <div class="step" id="s4">4</div>
+        <div class="step" id="s5">5</div>
+    </div>
+
+    <div id="game-content" class="quiz-zone">
+        <div class="info-bar">
+            <span id="question-num">第 1 / 20 題</span>
+            <span>積分: <span id="score-display">0</span></span>
+        </div>
+        <div id="stage-name" style="color: var(--main); font-weight: bold; margin-bottom: 10px;"></div>
+        <div class="target-word" id="display-word">...</div>
+        <div class="options" id="options-grid"></div>
+        <div id="feedback" style="margin-top: 15px; height: 20px; font-weight: bold;"></div>
+    </div>
+</div>
+
+<script>
+    const allStages = {
+        1: { name: "第一關：平翹舌音 (z/c/s vs zh/ch/sh)", data: [
+            {w:"站", c:"zh", o:["z","zh"]}, {w:"在", c:"z", o:["z","zh"]}, {w:"早", c:"z", o:["z","zh"]}, {w:"中", c:"zh", o:["z","zh"]},
+            {w:"草", c:"c", o:["c","ch"]}, {w:"唱", c:"ch", o:["c","ch"]}, {w:"三", c:"s", o:["s","sh"]}, {w:"山", c:"sh", o:["s","sh"]},
+            {w:"昨", c:"z", o:["z","zh"]}, {w:"這", c:"zh", o:["z","zh"]}, {w:"次", c:"c", o:["c","ch"]}, {w:"車", c:"ch", o:["c","ch"]},
+            {w:"死", c:"s", o:["s","sh"]}, {w:"是", c:"sh", o:["s","sh"]}, {w:"走", c:"z", o:["z","zh"]}, {w:"直", c:"zh", o:["z","zh"]},
+            {w:"才", c:"c", o:["c","ch"]}, {w:"出", c:"ch", o:["c","ch"]}, {w:"算", c:"s", o:["s","sh"]}, {w:"上", c:"sh", o:["s","sh"]}
+        ]},
+        2: { name: "第二關：鼻音與邊音 (n vs l)", data: [
+            {w:"南", c:"n", o:["n","l"]}, {w:"蘭", c:"l", o:["n","l"]}, {w:"牛", c:"n", o:["n","l"]}, {w:"流", c:"l", o:["n","l"]},
+            {w:"年", c:"n", o:["n","l"]}, {w:"連", c:"l", o:["n","l"]}, {w:"怒", c:"n", o:["n","l"]}, {w:"路", c:"l", o:["n","l"]},
+            {w:"內", c:"n", o:["n","l"]}, {w:"累", c:"l", o:["n","l"]}, {w:"男", c:"n", o:["n","l"]}, {w:"藍", c:"l", o:["n","l"]},
+            {w:"奶", c:"n", o:["n","l"]}, {w:"來", c:"l", o:["n","l"]}, {w:"能", c:"n", o:["n","l"]}, {w:"冷", c:"l", o:["n","l"]},
+            {w:"泥", c:"n", o:["n","l"]}, {w:"離", c:"l", o:["n","l"]}, {w:"念", c:"n", o:["n","l"]}, {w:"練", c:"l", o:["n","l"]}
+        ]},
+        3: { name: "第三關：唇齒/舌根/舌尖音 (b/p/f/d/t/g/k/h)", data: [
+            {w:"八", c:"b", o:["b","p"]}, {w:"怕", c:"p", o:["b","p"]}, {w:"發", c:"f", o:["f","h"]}, {w:"花", c:"h", o:["f","h"]},
+            {w:"大", c:"d", o:["d","t"]}, {w:"他", c:"t", o:["d","t"]}, {w:"個", c:"g", o:["g","k"]}, {w:"可", c:"k", o:["g","k"]},
+            {w:"比", c:"b", o:["b","p"]}, {w:"跑", c:"p", o:["b","p"]}, {w:"風", c:"f", o:["f","h"]}, {w:"紅", c:"h", o:["f","h"]},
+            {w:"地", c:"d", o:["d","t"]}, {w:"提", c:"t", o:["d","t"]}, {w:"姑", c:"g", o:["g","k"]}, {w:"哭", c:"k", o:["g","k"]},
+            {w:"包", c:"b", o:["b","p"]}, {w:"皮", c:"p", o:["b","p"]}, {w:"飛", c:"f", o:["f","h"]}, {w:"灰", c:"h", o:["f","h"]}
+        ]},
+        4: { name: "第四關：舌面音與精細辨析 (j/q/x/r)", data: [
+            {w:"家", c:"j", o:["j","q"]}, {w:"七", c:"q", o:["j","q"]}, {w:"小", c:"x", o:["s","x"]}, {w:"人", c:"r", o:["l","r"]},
+            {w:"雞", c:"j", o:["j","q"]}, {w:"去", c:"q", o:["j","q"]}, {w:"洗", c:"x", o:["s","x"]}, {w:"熱", c:"r", o:["l","r"]},
+            {w:"進", c:"j", o:["j","q"]}, {w:"前", c:"q", o:["j","q"]}, {w:"想", c:"x", o:["s","x"]}, {w:"肉", c:"r", o:["l","r"]},
+            {w:"就", c:"j", o:["j","q"]}, {w:"請", c:"q", o:["j","q"]}, {w:"校", c:"x", o:["s","x"]}, {w:"日", c:"r", o:["l","r"]},
+            {w:"叫", c:"j", o:["j","q"]}, {w:"全", c:"q", o:["j","q"]}, {w:"謝", c:"x", o:["s","x"]}, {w:"如", c:"r", o:["l","r"]}
+        ]},
+        5: { name: "第五關：終極混合挑戰 (綜合複習)", data: [
+            {w:"書", c:"sh", o:["s","sh"]}, {w:"足", c:"z", o:["z","zh"]}, {w:"六", c:"l", o:["n","l"]}, {w:"您", c:"n", o:["n","l"]},
+            {w:"橋", c:"q", o:["j","q"]}, {w:"看", c:"k", o:["g","k"]}, {w:"話", c:"h", o:["f","h"]}, {w:"多", c:"d", o:["d","t"]},
+            {w:"這", c:"zh", o:["z","zh"]}, {w:"菜", c:"c", o:["c","ch"]}, {w:"拿", c:"n", o:["n","l"]}, {w:"亮", c:"l", o:["n","l"]},
+            {w:"讓", c:"r", o:["l","r"]}, {w:"情", c:"q", o:["j","q"]}, {w:"選", c:"x", o:["s","x"]}, {w:"找", c:"zh", o:["z","zh"]},
+            {w:"此", c:"c", o:["c","ch"]}, {w:"收", c:"sh", o:["s","sh"]}, {w:"對", c:"d", o:["d","t"]}, {w:"朋", c:"p", o:["b","p"]}
+        ]}
+    };
+
+    let currentStage = parseInt(localStorage.getItem('mandarinStage')) || 1;
+    let score = parseInt(localStorage.getItem('mandarinScore')) || 0;
+    let quizIdx = 0;
+    let canClick = true;
+
+    function init() {
+        if (currentStage > 5) {
+            showFinalResult();
+            return;
+        }
+        updateProgressBar();
+        quizIdx = 0; // 重置當前關卡的題目索引
+        loadQuestion();
+    }
+
+    function updateProgressBar() {
+        for(let i=1; i<=5; i++) {
+            const el = document.getElementById('s'+i);
+            el.className = 'step';
+            if (i < currentStage) el.classList.add('done');
+            if (i === currentStage) el.classList.add('active');
+        }
+    }
+
+    function loadQuestion() {
+        canClick = true;
+        const stage = allStages[currentStage];
+        const q = stage.data[quizIdx];
+        
+        document.getElementById('stage-name').innerText = stage.name;
+        document.getElementById('question-num').innerText = `第 ${quizIdx + 1} / 20 題`;
+        document.getElementById('display-word').innerText = q.w;
+        document.getElementById('score-display').innerText = score;
+        document.getElementById('feedback').innerText = "";
+        
+        const grid = document.getElementById('options-grid');
+        grid.innerHTML = "";
+        q.o.forEach(opt => {
+            const btn = document.createElement('button');
+            btn.innerText = opt;
+            btn.onclick = () => checkAnswer(btn, opt, q.c);
+            grid.appendChild(btn);
+        });
+    }
+
+    function checkAnswer(btn, val, correct) {
+        if (!canClick) return;
+        const feedback = document.getElementById('feedback');
+        
+        if (val === correct) {
+            canClick = false;
+            btn.classList.add('correct');
+            score += 10;
+            document.getElementById('score-display').innerText = score;
+            localStorage.setItem('mandarinScore', score);
+            
+            quizIdx++;
+            if (quizIdx < 20) {
+                setTimeout(loadQuestion, 600);
+            } else {
+                setTimeout(showStageComplete, 600);
+            }
+        } else {
+            btn.classList.add('wrong');
+            feedback.innerText = "再試一次！";
+            feedback.style.color = "var(--accent)";
+        }
+    }
+
+    function showStageComplete() {
+        const content = document.getElementById('game-content');
+        content.innerHTML = `
+            <div style="padding: 20px;">
+                <h2 style="color:var(--success);">🎉 本關通關！</h2>
+                <p>你已經完成了 "${allStages[currentStage].name}"</p>
+                <p>目前總積分：<strong>${score}</strong></p>
+                <button class="nav-btn" onclick="startNextStage()">進入下一步</button>
+            </div>
+        `;
+    }
+
+    function startNextStage() {
+        currentStage++;
+        localStorage.setItem('mandarinStage', currentStage);
+        // 恢復遊戲界面 HTML 結構
+        document.getElementById('game-content').innerHTML = `
+            <div class="info-bar">
+                <span id="question-num"></span>
+                <span>積分: <span id="score-display"></span></span>
+            </div>
+            <div id="stage-name" style="color: var(--main); font-weight: bold; margin-bottom: 10px;"></div>
+            <div class="target-word" id="display-word"></div>
+            <div class="options" id="options-grid"></div>
+            <div id="feedback" style="margin-top: 15px; height: 20px; font-weight: bold;"></div>
+        `;
+        init();
+    }
+
+    function showFinalResult() {
+        document.getElementById('game-content').innerHTML = `
+            <div style="padding: 20px;">
+                <h2 style="color:var(--main);">🎊 挑戰結束！</h2>
+                <p style="font-size: 20px;">恭喜你，獲得了 <strong style="color:var(--accent); font-size: 32px;">${score}</strong> 分！</p>
+                <p>你已經完全掌握了普通話聲母的核心辨析。</p>
+                <button class="nav-btn" onclick="resetGame()">重新開始挑戰</button>
+            </div>
+        `;
+        // 確保進度條全部亮綠燈
+        for(let i=1; i<=5; i++) document.getElementById('s'+i).classList.add('done');
+    }
+
+    function resetGame() {
+        localStorage.clear();
+        location.reload();
+    }
+
+    init();
+</script>
+</body>
+</html>
