@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <title>普通話 j q x 朗讀挑戰</title>
+  <style>
+    body { font-family: "Microsoft JhengHei", sans-serif; text-align: center; background: #f3e5f5; padding: 20px; color: #333; }
+    .container { max-width: 700px; margin: auto; background: white; padding: 30px; border-radius: 20px; box-shadow: 0 8px 20px rgba(0,0,0,0.1); position: relative; min-height: 520px; }
+    h1 { color: #7b1fa2; }
+    .word-box { font-size: 80px; color: #4a148c; margin: 20px 0; padding: 20px; border: 4px dashed #e1bee7; border-radius: 15px; }
+    .info { font-size: 20px; margin: 10px 0; color: #666; }
+    button { margin: 10px; padding: 15px 35px; font-size: 20px; cursor: pointer; border: none; border-radius: 50px; transition: 0.3s; font-weight: bold; }
+    .play-btn { background: #9c27b0; color: white; }
+    .record-btn { background: #e91e63; color: white; }
+    .record-btn.active { background: #9e9e9e; animation: blink 1s infinite; }
+    @keyframes blink { 50% { opacity: 0.6; } }
+    
+    /* 導航按鍵樣式 */
+    .nav-btn { position: absolute; bottom: 20px; background: #607d8b; color: white; padding: 10px 20px; font-size: 16px; border-radius: 10px; cursor: pointer; border: none; }
+    .nav-btn:hover { background: #455a64; }
+    .skip-btn { right: 20px; }
+    .prev-btn { left: 20px; }
+    .nav-btn:disabled { background: #cfd8dc; cursor: not-allowed; }
+
+    #result-msg { margin-top: 20px; font-size: 24px; min-height: 40px; font-weight: bold; }
+    .stats { display: flex; justify-content: space-around; margin-top: 30px; font-size: 24px; background: #f5f5f5; padding: 15px; border-radius: 10px; }
+    .final-screen { display: none; }
+    .score-high { color: #2e7d32; font-size: 40px; }
+    .score-mid { color: #ef6c00; font-size: 40px; }
+    .score-low { color: #c62828; font-size: 40px; }
+  </style>
+</head>
+<body>
+
+<div class="container" id="game-container">
+  <h1>🎙️ 普通話 j q x 朗讀挑戰</h1>
+  <p class="info">請準確發出舌面前音，每個詞語有三次機會！</p>
+  
+  <div class="stats">
+    <div>累計得分：<span id="current-score">0</span></div>
+    <div>剩餘機會：<span id="chances">3</span></div>
+  </div>
+
+  <div class="word-box" id="targetWord">載入中...</div>
+  
+  <button class="play-btn" onclick="playSample()">播放示範音 🔊</button>
+  <button class="record-btn" id="recordBtn" onclick="startRecognition()">開始朗讀 🎤</button>
+  
+  <div id="result-msg"></div>
+  <p id="progress" style="margin-top:20px; color:#888;">進度：1 / 20</p>
+
+  <button class="nav-btn prev-btn" id="prevBtn" onclick="prevWord()">⬅ 上一題</button>
+  <button class="nav-btn skip-btn" onclick="skipWord()">下一題 ➔</button>
+</div>
+
+<div class="container final-screen" id="final-screen">
+  <h1>測驗結果</h1>
+  <div id="total-score-display" style="font-size: 60px; font-weight: bold;"></div>
+  <div id="final-msg" style="margin: 30px 0;"></div>
+  <button class="play-btn" onclick="location.reload()">重新挑戰 🔄</button>
+</div>
+
+<script>
+  const wordList = [
+    "積極", "情況", "休息", "機器", "情緒", 
+    "新鮮", "技巧", "確實", "詳細", "聚集", 
+    "前進", "心想", "境界", "漆黑", "相信", 
+    "解決", "請求", "虛心", "即使", "秋天"
+  ];
+
+  let currentIndex = 0;
+  let chancesArray = new Array(wordList.length).fill(3); // 紀錄每一題的剩餘機會
+  let scoresArray = new Array(wordList.length).fill(0);  // 紀錄每一題的得分
+  let isLevelPassedArray = new Array(wordList.length).fill(false); // 紀錄每一題是否已通過
+
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const recognition = new SpeechRecognition();
+  recognition.lang = 'zh-CN'; 
+
+  function calculateTotalScore() {
+    return scoresArray.reduce((a, b) => a + b, 0);
+  }
+
+  function updateDisplay() {
+    if (currentIndex < wordList.length) {
+      document.getElementById('targetWord').innerText = wordList[currentIndex];
+      document.getElementById('progress').innerText = `進度：${currentIndex + 1} / ${wordList.length}`;
+      document.getElementById('chances').innerText = chancesArray[currentIndex];
+      document.getElementById('current-score').innerText = calculateTotalScore();
+      
+      // 控制上一題按鈕是否可用
+      document.getElementById('prevBtn').disabled = (currentIndex === 0);
+      
+      // 如果這題已經過關，顯示提示
+      if (isLevelPassedArray[currentIndex]) {
+        document.getElementById('result-msg').innerHTML = "<span style='color:green;'>這題你已經讀對囉！✅</span>";
+      } else {
+        document.getElementById('result-msg').innerText = "";
+      }
+    } else {
+      showFinalResult();
+    }
+  }
+
+  function playSample() {
+    const msg = new SpeechSynthesisUtterance(wordList[currentIndex]);
+    msg.lang = 'zh-CN';
+    window.speechSynthesis.speak(msg);
+  }
+
+  function startRecognition() {
+    if (isLevelPassedArray[currentIndex] || chancesArray[currentIndex] <= 0) return;
+    
+    const btn = document.getElementById('recordBtn');
+    if (window.AudioContext) { new AudioContext().resume(); } 
+    
+    recognition.start();
+    btn.classList.add('active');
+    btn.innerText = "正在錄音...";
+
+    recognition.onresult = (event) => {
+      const studentText = event.results[0][0].transcript;
+      btn.classList.remove('active');
+      btn.innerText = "開始朗讀 🎤";
+      checkResult(studentText);
+    };
+
+    recognition.onerror = () => {
+      btn.classList.remove('active');
+      btn.innerText = "開始朗讀 🎤";
+      document.getElementById('result-msg').innerText = "沒聽清楚，請再試一次";
+    };
+  }
+
+  function checkResult(studentText) {
+    const target = wordList[currentIndex];
+    const resultMsg = document.getElementById('result-msg');
+
+    if (studentText.includes(target)) {
+      scoresArray[currentIndex] = 5;
+      isLevelPassedArray[currentIndex] = true;
+      resultMsg.innerHTML = "<span style='color:green;'>✅ 太棒了！發音正確 (+5分)</span>";
+      setTimeout(nextWord, 1200);
+    } else {
+      chancesArray[currentIndex]--;
+      if (chancesArray[currentIndex] > 0) {
+        resultMsg.innerHTML = `<span style='color:orange;'>❌ 聽起來像「${studentText}」，剩餘 ${chancesArray[currentIndex]} 次機會</span>`;
+        document.getElementById('chances').innerText = chancesArray[currentIndex];
+      } else {
+        resultMsg.innerHTML = `<span style='color:red;'>機會用完，建議查看下一題。</span>`;
+      }
+    }
+    document.getElementById('current-score').innerText = calculateTotalScore();
+  }
+
+  function prevWord() {
+    if (currentIndex > 0) {
+      currentIndex--;
+      updateDisplay();
+    }
+  }
+
+  function skipWord() {
+    nextWord();
+  }
+
+  function nextWord() {
+    currentIndex++;
+    updateDisplay();
+  }
+
+  function showFinalResult() {
+    document.getElementById('game-container').style.display = 'none';
+    const screen = document.getElementById('final-screen');
+    const scoreDisplay = document.getElementById('total-score-display');
+    const msgDisplay = document.getElementById('final-msg');
+    
+    screen.style.display = 'block';
+    let totalScore = calculateTotalScore();
+    scoreDisplay.innerText = totalScore + " 分";
+
+    if (totalScore < 60) {
+      msgDisplay.innerHTML = "<div class='score-low'>請繼續加油！</div>";
+    } else if (totalScore <= 80) {
+      msgDisplay.innerHTML = "<div class='score-mid'>表現不錯，再接再厲！</div>";
+    } else {
+      msgDisplay.innerHTML = "<div class='score-high'>恭喜你，非常棒！</div>";
+    }
+  }
+
+  updateDisplay();
+</script>
+
+</body>
+</html>
