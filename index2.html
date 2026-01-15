@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <title>普通話聲母練習遊戲</title>
+  <style>
+    body {
+      font-family: "Microsoft JhengHei", sans-serif;
+      text-align: center;
+      margin: 0;
+      padding: 20px;
+      background: linear-gradient(135deg, #e0f7fa, #ffffff); /* 淺藍到白色漸層 */
+      color: #2c3e50;
+    }
+    h1 {
+      color: #00796b;
+      font-size: 48px;
+      text-shadow: 1px 1px 3px rgba(0,0,0,0.1);
+    }
+    .question {
+      font-size: 60px;
+      margin: 30px 0;
+      color: #37474f;
+      animation: bounce 1s infinite alternate;
+    }
+    @keyframes bounce {
+      from { transform: translateY(0); }
+      to { transform: translateY(-10px); }
+    }
+    .options button {
+      margin: 10px;
+      padding: 15px 30px;
+      font-size: 22px;
+      cursor: pointer;
+      border: none;
+      border-radius: 30px;
+      background-color: #4fc3f7;
+      color: #fff;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+      transition: transform 0.2s, background-color 0.3s;
+    }
+    .options button:hover {
+      background-color: #0288d1;
+      transform: scale(1.1);
+    }
+    .feedback {
+      font-size: 26px;
+      margin-top: 20px;
+      font-weight: bold;
+      color: #00796b;
+      animation: fadeIn 1s;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+    .score {
+      font-size: 28px;
+      margin-top: 30px;
+      color: #d84315;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <h1>🎉 普通話聲母練習遊戲 🎉</h1>
+  <p style="font-size:20px;">請選擇這個漢字的聲母！</p>
+  
+  <div class="question" id="question">媽</div>
+  <div class="options" id="options"></div>
+  <div class="feedback" id="feedback"></div>
+  <div class="score" id="score">當前得分：0 分</div>
+  
+  <!-- 音效檔案 -->
+  <audio id="correctSound" src="correct.mp3" preload="auto"></audio>
+  <audio id="wrongSound" src="wrong.mp3" preload="auto"></audio>
+  
+  <script>
+    const questions = [
+      { word: "媽", pinyin: "mā", answer: "m", options: ["m", "n", "l", "r"] },
+      { word: "爸", pinyin: "bà", answer: "b", options: ["b", "p", "m", "f"] },
+      { word: "狗", pinyin: "gǒu", answer: "g", options: ["g", "k", "h", "zh"] },
+      { word: "花", pinyin: "huā", answer: "h", options: ["h", "f", "sh", "x"] },
+      { word: "書", pinyin: "shū", answer: "sh", options: ["sh", "s", "x", "zh"] },
+      { word: "魚", pinyin: "yú", answer: "y", options: ["y", "w", "r", "l"] },
+      { word: "鳥", pinyin: "niǎo", answer: "n", options: ["n", "m", "l", "r"] },
+      { word: "車", pinyin: "chē", answer: "ch", options: ["ch", "zh", "sh", "c"] },
+      { word: "山", pinyin: "shān", answer: "sh", options: ["sh", "s", "x", "zh"] },
+      { word: "人", pinyin: "rén", answer: "r", options: ["r", "l", "n", "y"] },
+      { word: "口", pinyin: "kǒu", answer: "k", options: ["k", "g", "h", "zh"] },
+      { word: "馬", pinyin: "mǎ", answer: "m", options: ["m", "n", "l", "r"] },
+      { word: "風", pinyin: "fēng", answer: "f", options: ["f", "h", "sh", "s"] },
+      { word: "燈", pinyin: "dēng", answer: "d", options: ["d", "t", "n", "l"] },
+      { word: "土", pinyin: "tǔ", answer: "t", options: ["t", "d", "n", "l"] },
+      { word: "雞", pinyin: "jī", answer: "j", options: ["j", "q", "x", "zh"] },
+      { word: "竹", pinyin: "zhú", answer: "zh", options: ["zh", "ch", "sh", "z"] },
+      { word: "西", pinyin: "xī", answer: "x", options: ["x", "sh", "s", "h"] },
+      { word: "梨", pinyin: "lí", answer: "l", options: ["l", "n", "r", "y"] },
+      { word: "桌", pinyin: "zhuō", answer: "zh", options: ["zh", "ch", "sh", "z"] }
+    ];
+    
+    let current = 0;
+    let score = 0;
+    let answered = false;
+    
+    function shuffle(array) {
+      for (let i = array.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [array[i], array[j]] = [array[j], array[i]];
+      }
+      return array;
+    }
+    
+    function loadQuestion() {
+      if (current >= questions.length) {
+        document.getElementById("question").textContent = "🏆 遊戲結束 🎉";
+        document.getElementById("options").innerHTML = "";
+        document.getElementById("feedback").textContent = "";
+        document.getElementById("score").textContent = "總分：" + score + " 分";
+        return;
+      }
+      
+      const q = questions[current];
+      document.getElementById("question").textContent = q.word;
+      const optionsDiv = document.getElementById("options");
+      optionsDiv.innerHTML = "";
+      let shuffledOptions = shuffle([...q.options]);
+      shuffledOptions.forEach(opt => {
+        const btn = document.createElement("button");
+        btn.textContent = opt;
+        btn.onclick = () => checkAnswer(opt);
+        optionsDiv.appendChild(btn);
+      });
+      document.getElementById("feedback").textContent = "";
+      answered = false;
+    }
+    
+    function checkAnswer(selected) {
+      const q = questions[current];
+      if (!answered) {
+        if (selected === q.answer) {
+          score += 5;
+          document.getElementById("feedback").textContent = "🎉 正確！拼音：" + q.pinyin + " (+5分)";
+          document.getElementById("correctSound").play();
+        } else {
+          document.getElementById("feedback").textContent = "😅 錯誤！拼音：" + q.pinyin + "。再接再厲，下次一定更好！";
+          document.getElementById("wrongSound").play();
+        }
+        document.getElementById("score").textContent = "當前得分：" + score + " 分";
+        answered = true;
+        setTimeout(() => {
+          current++;
+          loadQuestion();
+        }, 2000);
+      }
+    }
+    
+    loadQuestion();
+  </script>
+</body>
+</html>
