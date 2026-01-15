@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>普通話 j q x 朗讀挑戰</title>
+  <style>
+    body { font-family: "Microsoft JhengHei", sans-serif; text-align: center; background: #f3e5f5; padding: 20px; color: #333; margin: 0; }
+    /* 啟動遮罩 */
+    #overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(123, 31, 162, 0.9); color: white; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 1000; }
+    #overlay button { padding: 20px 40px; font-size: 24px; background: #ffeb3b; color: #4a148c; border: none; border-radius: 50px; font-weight: bold; cursor: pointer; }
+    
+    .container { max-width: 700px; margin: auto; background: white; padding: 30px; border-radius: 20px; box-shadow: 0 8px 20px rgba(0,0,0,0.1); position: relative; min-height: 520px; }
+    h1 { color: #7b1fa2; font-size: 24px; }
+    .word-box { font-size: 80px; color: #4a148c; margin: 20px 0; padding: 20px; border: 4px dashed #e1bee7; border-radius: 15px; background: #fafafa; }
+    .info { font-size: 18px; margin: 10px 0; color: #666; }
+    button { margin: 10px; padding: 15px 35px; font-size: 20px; cursor: pointer; border: none; border-radius: 50px; transition: 0.3s; font-weight: bold; }
+    .play-btn { background: #9c27b0; color: white; }
+    .record-btn { background: #e91e63; color: white; }
+    .record-btn.active { background: #9e9e9e; animation: blink 1s infinite; }
+    @keyframes blink { 50% { opacity: 0.6; } }
+    
+    .nav-btn { position: absolute; bottom: 20px; background: #607d8b; color: white; padding: 10px 20px; font-size: 16px; border-radius: 10px; cursor: pointer; }
+    .skip-btn { right: 20px; }
+    .prev-btn { left: 20px; }
+    #result-msg { margin-top: 20px; font-size: 22px; min-height: 40px; font-weight: bold; }
+    .stats { display: flex; justify-content: space-around; margin-top: 30px; font-size: 22px; background: #f5f5f5; padding: 15px; border-radius: 10px; }
+    .final-screen { display: none; }
+  </style>
+</head>
+<body>
+
+<div id="overlay">
+  <h2>普通話 j q x 朗讀教室</h2>
+  <p>點擊下方按鈕開始學習</p>
+  <button onclick="initSystem()">開始學習 🚀</button>
+</div>
+
+<div class="container" id="game-container">
+  <h1>🎙️ 普通話 j q x 朗讀挑戰</h1>
+  <p class="info">請準確朗讀詞語。系統支援繁簡及同音字辨識！</p>
+  
+  <div class="stats">
+    <div>得分：<span id="current-score">0</span></div>
+    <div>機會：<span id="chances">3</span></div>
+  </div>
+
+  <div class="word-box" id="targetWord">載入中...</div>
+  
+  <button class="play-btn" id="playBtn">播放示範音 🔊</button>
+  <button class="record-btn" id="recordBtn" onclick="startRecognition()">開始朗讀 🎤</button>
+  
+  <div id="result-msg"></div>
+  <p id="progress" style="margin-top:20px; color:#888;">進度：1 / 20</p>
+
+  <button class="nav-btn prev-btn" id="prevBtn" onclick="prevWord()">⬅ 上一題</button>
+  <button class="nav-btn skip-btn" onclick="skipWord()">下一題 ➔</button>
+</div>
+
+<div class="container final-screen" id="final-screen">
+  <h1>測驗結果</h1>
+  <div id="total-score-display" style="font-size: 60px; font-weight: bold; color: #7b1fa2;"></div>
+  <div id="final-msg" style="margin: 30px 0; font-size: 24px; font-weight: bold;"></div>
+  <button class="play-btn" onclick="location.reload()">重新挑戰 🔄</button>
+</div>
+
+<script>
+  // 詞庫數據：t(繁體), s(簡體), h(常見同音字/誤辨字)
+  const wordData = [
+    { t: "積極", s: "积极", h: ["基級", "基極", "積積", "基集", "擊機"] },
+    { t: "情況", s: "情况", h: ["情曠", "頃況", "慶況"] },
+    { t: "休息", "s": "休息", h: ["修細", "休系", "修習"] },
+    { t: "機器", "s": "机器", h: ["積器", "級器", "基器"] },
+    { t: "情緒", "s": "情绪", h: ["情序", "情續"] },
+    { t: "新鮮", "s": "新鲜", h: ["心鮮", "辛鮮"] },
+    { t: "技巧", "s": "技巧", h: ["計巧", "既巧"] },
+    { t: "確實", "s": "确实", h: ["確時", "卻實"] },
+    { t: "詳細", "s": "详细", h: ["詳系", "祥細"] },
+    { t: "聚集", "s": "聚集", h: ["聚集", "具集"] },
+    { t: "前進", "s": "前进", h: ["錢進", "全進"] },
+    { t: "心想", "s": "心想", h: ["新想", "欣想"] },
+    { t: "進步", "s": "进步", h: ["近步", "浸步"] },
+    { t: "漆黑", "s": "漆黑", h: ["七黑", "期黑"] },
+    { t: "相信", "s": "相信", h: ["相心", "想信"] },
+    { t: "解決", "s": "解决", h: ["解結", "節決"] },
+    { t: "請求", "s": "请求", h: ["情求", "慶求"] },
+    { t: "虛心", "s": "虚心", h: ["需心", "許心"] },
+    { t: "即使", "s": "即使", h: ["既使", "級使"] },
+    { t: "秋天", "s": "秋天", h: ["丘天", "修天"] }
+  ];
+
+  let currentIndex = 0;
+  let scoresArray = new Array(wordData.length).fill(0);
+  let chancesArray = new Array(wordData.length).fill(3);
+  let isLevelPassedArray = new Array(wordData.length).fill(false);
+
+  let synth = window.speechSynthesis;
+  let mandarinVoice = null;
+
+  // 1. 系統初始化：解決手機發音問題
+  function initSystem() {
+    document.getElementById('overlay').style.display = 'none';
+    // 立即嘗試加載語音清單
+    findVoice();
+    // 播放一個安靜的空音，激活 iOS 聲道
+    const silent = new SpeechSynthesisUtterance("");
+    synth.speak(silent);
+  }
+
+  function findVoice() {
+    let voices = synth.getVoices();
+    // 強制搜尋普通話
+    mandarinVoice = voices.find(v => (v.lang === 'zh-CN' || v.lang === 'zh-Hans-CN') && !v.name.includes('O-ren')) ||
+                    voices.find(v => v.name.includes('Mandarin') || v.name.includes('Putonghua')) ||
+                    voices.find(v => v.lang.includes('zh') && !v.lang.includes('HK'));
+  }
+
+  // 監聽語音清單變化
+  if (speechSynthesis.onvoiceschanged !== undefined) {
+    speechSynthesis.onvoiceschanged = findVoice;
+  }
+
+  document.getElementById('playBtn').onclick = function() {
+    if (synth.speaking) synth.cancel();
+    findVoice(); // 再次嘗試尋找
+    const msg = new SpeechSynthesisUtterance(wordData[currentIndex].t);
+    msg.lang = 'zh-CN';
+    if (mandarinVoice) msg.voice = mandarinVoice;
+    msg.rate = 0.8;
+    synth.speak(msg);
+  };
+
+  // 2. 錄音辨識與同音邏輯
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const recognition = new SpeechRecognition ? new SpeechRecognition() : null;
+  if(recognition) {
+    recognition.lang = 'zh-CN';
+    recognition.interimResults = false;
+  }
+
+  function startRecognition() {
+    if (!recognition) { alert("瀏覽器不支持語音辨識，請使用 Chrome/Safari"); return; }
+    if (isLevelPassedArray[currentIndex] || chancesArray[currentIndex] <= 0) return;
+    
+    recognition.start();
+    const btn = document.getElementById('recordBtn');
+    btn.classList.add('active');
+    btn.innerText = "正在辨識...";
+
+    recognition.onresult = (event) => {
+      const studentText = event.results[0][0].transcript;
+      btn.classList.remove('active');
+      btn.innerText = "開始朗讀 🎤";
+      checkResult(studentText);
+    };
+
+    recognition.onerror = () => {
+      btn.classList.remove('active');
+      btn.innerText = "開始朗讀 🎤";
+    };
+  }
+
+  function checkResult(studentText) {
+    const target = wordData[currentIndex];
+    const resultMsg = document.getElementById('result-msg');
+    
+    // 比對邏輯：
+    // 1. 比對繁體 2. 比對簡體 3. 比對預設同音字清單
+    const isCorrect = studentText.includes(target.t) || 
+                      studentText.includes(target.s) || 
+                      target.h.some(homo => studentText.includes(homo));
+
+    if (isCorrect) {
+      scoresArray[currentIndex] = 5;
+      isLevelPassedArray[currentIndex] = true;
+      resultMsg.innerHTML = "<span style='color:green;'>✅ 發音正確！(+5分)</span>";
+      setTimeout(nextWord, 1200);
+    } else {
+      chancesArray[currentIndex]--;
+      resultMsg.innerHTML = chancesArray[currentIndex] > 0 ? 
+        `<span style='color:orange;'>❌ 辨識為「${studentText}」</span>` : 
+        `<span style='color:red;'>機會已用完。</span>`;
+    }
+    updateDisplay();
+  }
+
+  function updateDisplay() {
+    document.getElementById('targetWord').innerText = wordData[currentIndex].t;
+    document.getElementById('progress').innerText = `進度：${currentIndex + 1} / ${wordData.length}`;
+    document.getElementById('chances').innerText = chancesArray[currentIndex];
+    document.getElementById('current-score').innerText = scoresArray.reduce((a,b)=>a+b,0);
+    document.getElementById('prevBtn').disabled = (currentIndex === 0);
+    if (isLevelPassedArray[currentIndex]) document.getElementById('result-msg').innerHTML = "<span style='color:green;'>已通過 ✅</span>";
+  }
+
+  function prevWord() { if (currentIndex > 0) { currentIndex--; updateDisplay(); document.getElementById('result-msg').innerText=""; } }
+  function skipWord() { 
+    if (currentIndex < wordData.length - 1) { 
+      currentIndex++; 
+      updateDisplay(); 
+      document.getElementById('result-msg').innerText=""; 
+    } else { 
+      showFinalResult(); 
+    } 
+  }
+  function nextWord() { skipWord(); }
+
+  function showFinalResult() {
+    document.getElementById('game-container').style.display = 'none';
+    document.getElementById('final-screen').style.display = 'block';
+    const total = scoresArray.reduce((a,b)=>a+b,0);
+    document.getElementById('total-score-display').innerText = total + " 分";
+    let feedback = total < 60 ? "請繼續加油！" : (total <= 80 ? "表現不錯，再接再厲！" : "恭喜你，非常棒！");
+    document.getElementById('final-msg').innerText = feedback;
+  }
+
+  updateDisplay();
+</script>
+</body>
+</html>
